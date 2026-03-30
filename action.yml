@@ -1,0 +1,48 @@
+name: secretsweep
+description: 'Scan your codebase for leaked secrets, API keys, and credentials before they hit production.'
+author: 'CipherShield'
+
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  path:
+    description: 'Path to scan (default: current directory)'
+    required: false
+    default: '.'
+  severity:
+    description: 'Minimum severity to report: high, medium, or all'
+    required: false
+    default: 'all'
+  fail-on-high:
+    description: 'Fail the action if high severity secrets are found'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install secretsweep
+      run: pip install secretsweep
+      shell: bash
+
+    - name: Run secretsweep
+      run: |
+        echo "🔍 secretsweep — Scanning for leaked secrets..."
+        echo "Path: ${{ inputs.path }}"
+        echo "Severity: ${{ inputs.severity }}"
+        echo ""
+        secretsweep "${{ inputs.path }}" --format github --severity "${{ inputs.severity }}" || true
+        echo ""
+        echo "--- JSON Report ---"
+        secretsweep "${{ inputs.path }}" --format json --severity "${{ inputs.severity }}" > secretsweep-report.json || true
+      shell: bash
+
+    - name: Upload report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: secretsweep-report
+        path: secretsweep-report.json
+        if-no-files-found: ignore
