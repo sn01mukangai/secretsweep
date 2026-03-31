@@ -12,37 +12,28 @@ inputs:
     required: false
     default: '.'
   severity:
-    description: 'Minimum severity to report: high, medium, or all'
+    description: 'Minimum severity: high, medium, or all'
     required: false
     default: 'all'
-  fail-on-high:
-    description: 'Fail the action if high severity secrets are found'
+  format:
+    description: 'Output format: text, json, or github'
     required: false
-    default: 'true'
+    default: 'github'
 
 runs:
   using: 'composite'
   steps:
     - name: Install secretsweep
-      run: pip install secretsweep
+      run: |
+        VERSION="2.0.0"
+        curl -sSL "https://github.com/sn01mukangai/secretsweep/releases/download/v${VERSION}/secretsweep-x86_64-unknown-linux-gnu.zip" -o /tmp/secretsweep.zip
+        unzip -o /tmp/secretsweep.zip -d /tmp/secretsweep-bin
+        chmod +x /tmp/secretsweep-bin/secretsweep
+        sudo mv /tmp/secretsweep-bin/secretsweep /usr/local/bin/
       shell: bash
 
     - name: Run secretsweep
       run: |
-        echo "🔍 secretsweep — Scanning for leaked secrets..."
-        echo "Path: ${{ inputs.path }}"
-        echo "Severity: ${{ inputs.severity }}"
-        echo ""
-        secretsweep "${{ inputs.path }}" --format github --severity "${{ inputs.severity }}" || true
-        echo ""
-        echo "--- JSON Report ---"
-        secretsweep "${{ inputs.path }}" --format json --severity "${{ inputs.severity }}" > secretsweep-report.json || true
+        echo "🔍 secretsweep v2.0.0 — Scanning for leaked secrets..."
+        secretsweep "${{ inputs.path }}" --format ${{ inputs.format }} --severity ${{ inputs.severity }}
       shell: bash
-
-    - name: Upload report
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: secretsweep-report
-        path: secretsweep-report.json
-        if-no-files-found: ignore
