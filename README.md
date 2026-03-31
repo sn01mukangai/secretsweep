@@ -4,12 +4,12 @@
 
 **Find leaked secrets before they leak.**
 
-Fast. Focused. Developer-friendly.
+Fast. Smart. Written in Rust.
 
-[![PyPI](https://img.shields.io/pypi/v/secretsweep?color=green)](https://pypi.org/project/secretsweep/)
+[![Release](https://img.shields.io/github/v/release/sn01mukangai/secretsweep?color=green)](https://github.com/sn01mukangai/secretsweep/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![GitHub Action](https://img.shields.io/badge/GitHub-Action-blue?logo=github)](https://github.com/marketplace/actions/secretsweep)
-[![Python](https://img.shields.io/badge/python-3.8+-yellow)](https://python.org)
+[![Rust](https://img.shields.io/badge/Rust-1.94+-orange?logo=rust)](https://rust-lang.org)
 
 </div>
 
@@ -17,45 +17,83 @@ Fast. Focused. Developer-friendly.
 
 **secretsweep** scans your codebase for leaked API keys, passwords, tokens, and credentials — before they hit production.
 
-Unlike bloated enterprise tools, secretsweep is **fast**, **zero-config**, and gives you **clean output** you can actually use.
+## ⚡ Why secretsweep?
 
-## ✨ Features
-
-- 🔍 **40+ secret patterns** — AWS, Google, Stripe, GitHub, Slack, OpenAI, databases, and more
-- ⚡ **Fast** — scans 10,000+ files in seconds
-- 🎯 **Focused** — minimal false positives, no bloat
-- 📦 **Zero config** — works out of the box
-- 🤖 **GitHub Action** — one line in your CI pipeline
-- 📊 **Multiple formats** — text, JSON, GitHub Actions annotations
-- 🚪 **Exit codes** — fails CI on high-severity findings
+| Feature | secretsweep | truffleHog | gitleaks |
+|---------|------------|------------|----------|
+| **Language** | Rust 🦀 | Python/Go | Go |
+| **Binary size** | 2.3 MB | ~50 MB | ~15 MB |
+| **False positives** | Low (quote-aware) | High | Medium |
+| **Entropy detection** | ✅ Shannon entropy | ✅ | ❌ |
+| **Git diff mode** | ✅ | ✅ | ✅ |
+| **Zero dependencies** | ✅ Single binary | ❌ | ✅ |
+| **Speed** | ⚡ Fast | 🐌 Slow | ⚡ Fast |
 
 ## 🚀 Install
 
+### Pre-built binary
+
 ```bash
-pip install secretsweep
+# Linux x86_64
+curl -sSL https://github.com/sn01mukangai/secretsweep/releases/latest/download/secretsweep-x86_64-unknown-linux-gnu.zip -o secretsweep.zip
+unzip secretsweep.zip
+chmod +x secretsweep
+sudo mv secretsweep /usr/local/bin/
+
+# macOS (Intel)
+curl -sSL https://github.com/sn01mukangai/secretsweep/releases/latest/download/secretsweep-x86_64-apple-darwin.zip -o secretsweep.zip
+
+# macOS (Apple Silicon)
+curl -sSL https://github.com/sn01mukangai/secretsweep/releases/latest/download/secretsweep-aarch64-apple-darwin.zip -o secretsweep.zip
+```
+
+### Build from source
+
+```bash
+git clone https://github.com/sn01mukangai/secretsweep.git
+cd secretsweep
+cargo build --release
+cp target/release/secretsweep /usr/local/bin/
 ```
 
 ## 📖 Usage
 
-### Scan a directory
+### Scan a project
 
 ```bash
 secretsweep ./src
 ```
 
-### Scan with JSON output
+### Output formats
 
 ```bash
-secretsweep . --format json
+secretsweep . --format text      # Human-readable (default)
+secretsweep . --format json      # JSON for automation
+secretsweep . --format github    # GitHub Actions annotations
 ```
 
-### Only report high severity
+### Filter by severity
 
 ```bash
-secretsweep . --severity high
+secretsweep . --severity high    # Only high severity
+secretsweep . --severity medium  # Medium and above
+secretsweep . --severity all     # Everything (default)
 ```
 
-### Scan from stdin (for git hooks, pipes, etc.)
+### Scan git changes (perfect for CI)
+
+```bash
+secretsweep --diff               # Scan only changed lines
+```
+
+### Entropy detection
+
+```bash
+secretsweep . --entropy 4.5      # Minimum Shannon entropy (default: 4.5)
+secretsweep . --no-entropy       # Disable entropy detection
+```
+
+### Scan from stdin
 
 ```bash
 cat file.py | secretsweep --stdin
@@ -64,16 +102,7 @@ git diff | secretsweep --stdin
 
 ## 🤖 GitHub Action
 
-Add to your workflow — one step:
-
-```yaml
-- uses: sn01mukangai/secretsweep@v1
-  with:
-    path: '.'
-    severity: 'all'
-```
-
-Full example:
+Add to your workflow:
 
 ```yaml
 name: Security Scan
@@ -83,89 +112,69 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: sn01mukangai/secretsweep@v1
+      - uses: sn01mukangai/secretsweep@v2
         with:
           path: '.'
           severity: 'high'
-          fail-on-high: 'true'
+          format: 'github'
 ```
 
-## 📊 Output Formats
+## 📊 What It Detects
 
-### Text (default)
-```
-============================================================
-  secretsweep v1.0.0 — Secret Scanner
-  Target: ./src
-============================================================
+| Category | Examples | Patterns |
+|----------|----------|----------|
+| **Cloud** | AWS keys, Google API keys, Firebase | 6 |
+| **Payments** | Stripe, OpenAI | 2 |
+| **Code Hosting** | GitHub PAT, OAuth, App tokens | 3 |
+| **Communication** | Slack, Discord, Telegram | 5 |
+| **Email** | SendGrid, Mailgun | 2 |
+| **Databases** | MongoDB, MySQL, PostgreSQL, Redis | 4 |
+| **Private Keys** | RSA, EC, Generic | 3 |
+| **JWT** | JSON Web Tokens | 1 |
+| **Generic** | API keys, passwords, tokens | 4 |
+| **Entropy** | Unknown secrets (high entropy strings) | ✨ |
 
-  Found 2 potential secret(s):
-  🔴 High: 1  🟡 Medium: 1
+**Total: 30+ named patterns + entropy detection**
 
-🔴 [HIGH] AWS Access Key
-   File: ./src/config.py:42
-   Match: AKIAIOSFODNN7EXAMPLE
-   AWS access key — can access cloud resources
+## 🧠 How It Works
 
-🟡 [MEDIUM] Generic API Key
-   File: ./src/utils.py:15
-   Match: api_key = "sk-abc123..."
-   Possible API key
-```
+### Pattern Matching
+Each secret type has a carefully crafted regex pattern. Patterns are tested against every line of every file.
 
-### JSON (`--format json`)
-```json
-{
-  "tool": "secretsweep",
-  "version": "1.0.0",
-  "summary": { "total": 2, "high": 1, "medium": 1 },
-  "findings": [...]
-}
-```
+### Entropy Detection
+Strings in quotes with high [Shannon entropy](https://en.wikipedia.org/wiki/Entropy_(information_theory)) (≥ 4.5 bits/char) are flagged as potential secrets — even if they don't match a known pattern.
 
-### GitHub Actions (`--format github`)
-```
-::warning file=src/config.py,line=42::[HIGH] AWS Access Key: AWS access key
-```
-
-## 🎯 What It Detects
-
-| Category | Examples |
-|----------|----------|
-| **Cloud** | AWS keys, Google API keys, Firebase URLs |
-| **Payments** | Stripe keys, PayPal credentials |
-| **Code Hosting** | GitHub PATs, GitLab tokens |
-| **Communication** | Slack tokens, Discord webhooks, Telegram bots |
-| **Email** | SendGrid, Mailgun API keys |
-| **AI** | OpenAI API keys |
-| **Databases** | MongoDB, MySQL, PostgreSQL, Redis URIs |
-| **Crypto** | Private keys (RSA, EC, DSA), JWTs |
-| **Generic** | API keys, passwords, tokens, secrets |
+### False Positive Reduction
+- **Quote-aware filtering** — regex patterns in source code are ignored
+- **Comment skipping** — lines starting with `#`, `//`, `*` are skipped
+- **Known FP database** — common false positives (example.com, placeholder, etc.)
+- **Binary file skipping** — images, archives, executables are skipped
 
 ## 🔧 Exit Codes
 
 - `0` — No high-severity secrets found
 - `1` — High-severity secrets detected
 
-Use this in CI to block merges with leaked secrets:
+Use in CI to block merges:
 
 ```bash
-secretsweep . --severity high || echo "SECRETS FOUND - BLOCKING MERGE"
+secretsweep . --severity high || echo "❌ Secrets found — merge blocked"
 ```
 
 ## 📦 Integrations
 
-### pre-commit hook
+### pre-commit
 
 ```yaml
 # .pre-commit-config.yaml
-- repo: local
-  hooks:
-    - id: secretsweep
-      name: secretsweep
-      entry: secretsweep --severity high
-      language: python
-      types: [file]
+repos:
+  - repo: local
+    hooks:
+      - id: secretsweep
+        name: secretsweep
+        entry: secretsweep --severity high
+        language: system
+        types: [file]
 ```
 
 ### Git pre-push hook
@@ -173,23 +182,65 @@ secretsweep . --severity high || echo "SECRETS FOUND - BLOCKING MERGE"
 ```bash
 #!/bin/bash
 # .git/hooks/pre-push
-secretsweep . --severity high
+secretsweep . --severity high --no-entropy
 if [ $? -ne 0 ]; then
-  echo "❌ Secrets found — push blocked"
+  echo "❌ High-severity secrets found — push blocked"
   exit 1
 fi
 ```
 
-## 🤔 Why Not truffleHog/gitleaks?
+### VS Code Task
 
-| Feature | secretsweep | truffleHog | gitleaks |
-|---------|------------|------------|----------|
-| **Setup** | `pip install` | Complex | Go install |
-| **Speed** | ⚡ Fast | 🐌 Slow | ⚡ Fast |
-| **False positives** | Low | High | Medium |
-| **Output** | Clean text/JSON | Verbose | Verbose |
-| **CI integration** | GitHub Action built-in | Manual | Manual |
-| **Zero config** | ✅ | ❌ | ❌ |
+```json
+{
+  "label": "Secret Sweep",
+  "type": "shell",
+  "command": "secretsweep",
+  "args": ["${workspaceFolder}", "--format", "text"],
+  "problemMatcher": []
+}
+```
+
+## 📋 JSON Output Schema
+
+```json
+{
+  "tool": "secretsweep",
+  "version": "2.1.0",
+  "target": "./src",
+  "timestamp": "2026-03-31",
+  "files_scanned": 42,
+  "summary": {
+    "total": 3,
+    "high": 2,
+    "medium": 1
+  },
+  "findings": [
+    {
+      "file": "./src/config.py",
+      "line": 42,
+      "pattern": "AWS Access Key",
+      "severity": "high",
+      "description": "AWS access key",
+      "match": "AKIAIOSFODNN7EXAMPLE"
+    }
+  ]
+}
+```
+
+## 🗺️ Roadmap
+
+- [x] Core secret scanning
+- [x] Entropy detection
+- [x] False positive reduction
+- [x] GitHub Action
+- [x] Cross-platform binaries
+- [x] JSON/text/GitHub output
+- [ ] Custom pattern file (`.secretsweep.toml`)
+- [ ] Ignore file (`.secretsweepignore`)
+- [ ] SARIF output (GitHub Code Scanning)
+- [ ] VS Code extension
+- [ ] Pre-commit hook package
 
 ## 🛡️ Powered by CipherShield
 
